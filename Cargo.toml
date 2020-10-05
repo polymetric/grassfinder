@@ -8,3 +8,6 @@ edition = "2018"
 
 [dependencies]
 spiral = "0.1"
+
+[profile.release]
+lto = true

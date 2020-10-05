@@ -1,7 +1,8 @@
 use spiral::*;
-use std::collections::HashMap;
 use std::fs;
 use std::error::Error;
+use std::ops::*;
+use std::process;
 
 const PATH: &'static str = "positions.txt";
 
@@ -9,28 +10,47 @@ fn main() {
 	let spiral = ChebyshevIterator::new(0, 0, 2048);
 	let rows = load_grass_positions().unwrap();
 
-	for row in rows {
-		println!("{:?}", row);
-	}
+	for (x, z) in spiral {
+		for y in 63..129 {
+			let mut matches = 0;
+			let origin = Position { x, y, z };
 
-	for (i, (x, z)) in spiral.enumerate() {
-		for y in 63..128 {
-			let oi = grass_offset(x, y, z);
-			let of: (f64, f64, f64) = off_itof_xyz(oi.x, oi.y, oi.z);
+			for (pos, off) in rows.iter() {
+				let pos_abs = origin + *pos;
+				let temp = grass_offset_from_pos(pos_abs);
+				let mut is_match = "";
 
-//			println!("{:>6} {:>6} {:>6} {:>12} {:>12} {:>12}", x, y, z, oi.x, oi.y, oi.z);
-//			println!("{:>6} {:>6} {:>6} {:>12.6} {:>12.6} {:>12.6}", x, y, z, of.0, of.1, of.2);
+				if *off == grass_offset_from_pos(pos_abs) {
+					matches += 1;
+					is_match = "MATCH";
+				}
+
+//				println!();
+//				println!("{:>8}{:>8}{:>8}", pos_abs.x, pos_abs.y, pos_abs.z);
+//				println!("{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} {}", off.x, off.y, off.z, temp.x, temp.y, temp.z, is_match);
+			}
+
+			if matches > 2 {
+				println!(
+					"{:>8}{:>8}{:>8} has {}/{} matches",
+					x, y, z, matches, rows.len()
+				);
+			}
 		}
 	}
 }
 
 const X_MULT: i32 = 0x2fc20f;
-const Y_MULT: i32 = 0x6ebfff5;
+const Z_MULT: i32 = 0x6ebfff5;
 const LCG_MULT: i64 = 0x285b825;
 const LCG_ADDEND: i64 = 11;
 
+fn grass_offset_from_pos(p: Position) -> Offset {
+	grass_offset(p.x, p.y, p.z)
+}
+
 fn grass_offset(x: i32, y: i32, z: i32) -> Offset {
-	let mut seed = (x * X_MULT) as i64 ^ (y * Y_MULT) as i64 ^ z as i64;
+	let mut seed = (x * X_MULT) as i64 ^ (z * Z_MULT) as i64 ^ y as i64;
 	seed = seed * seed * LCG_MULT + seed * LCG_ADDEND;
 	Offset {
 		x: (seed >> 16 & 15) as u8,
@@ -39,6 +59,8 @@ fn grass_offset(x: i32, y: i32, z: i32) -> Offset {
 	}
 }
 
+// returns a tuple of the input integer offsets converted to
+// actual position offsets (1.0 is equal to 1 block)
 fn off_itof_xyz(x: u8, y: u8, z: u8) -> (f64, f64, f64) {
 	(
 		map(x as f64, 0.0, 15.0, -0.25, 0.25),
@@ -47,6 +69,15 @@ fn off_itof_xyz(x: u8, y: u8, z: u8) -> (f64, f64, f64) {
 	)
 }
 
+fn off_ftoi_xyz(x: f64, y: f64, z: f64) -> (u8, u8, u8) {
+	(
+		map(x, -0.25, 0.25, 0.0, 15.0) as u8,
+		map(y, -0.2, 0.0, 0.0, 15.0) as u8,
+		map(z, -0.25, 0.25, 0.0, 15.0) as u8,
+	)
+}
+
+// standard linear interp
 fn map(
 	x: f64,
 	in_min: f64,
@@ -71,13 +102,34 @@ struct Offset {
 	z: u8,
 }
 
+impl PartialEq for Offset {
+	fn eq(&self, other: &Self) -> bool {
+		self.x == other.x &&
+		self.y == other.y &&
+		self.z == other.z
+	}
+}
+
+impl Add for Position {
+	type Output = Self;
+
+	fn add(self, other: Self) -> Self::Output {
+		Self {
+			x: self.x + other.x,
+			y: self.y + other.y,
+			z: self.z + other.z,
+		}
+	}
+}
+
 fn load_grass_positions() -> Result<Vec<(Position, Offset)>, Box<dyn Error>> {
 	let contents = fs::read_to_string(PATH)?;
 
 	Ok(contents
 		.lines()
 		.map(|line| {
-			let mut line = line.split(" ");
+			let mut line = line
+				.split_whitespace();
 
 			(
 				Position {
