@@ -3,13 +3,21 @@ use std::fs;
 use std::error::Error;
 use std::ops::*;
 use std::process;
+use std::env;
 
 const PATH: &'static str = "offsets.txt";
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
 	let spiral = ChebyshevIterator::new(0, 0, 2048);
 	let rows = load_grass_positions().unwrap();
-    let recorigin = Position::new(-46, 66, 3);
+
+    let recorigin = Position::new(
+        (&args[1]).parse::<i32>().unwrap(),
+        (&args[2]).parse::<i32>().unwrap(),
+        (&args[3]).parse::<i32>().unwrap(),
+    );
 
 	for (x, z) in spiral {
 		for y in 62..80 {
@@ -32,7 +40,7 @@ fn main() {
 //				println!("{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} {}", off.x, off.y, off.z, temp.x, temp.y, temp.z, is_match);
 			}
 
-			if delta < 10 {
+			if delta < 4 {
 				println!(
 					"{:>8}{:>8}{:>8} has delta of {}",
 					x, y, z, delta
