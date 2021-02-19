@@ -43,7 +43,7 @@ fn main() {
 
             delta /= grass_count as f64;
 
-			if delta < 4.0 {
+			if delta < 2.0 {
 				println!(
 					"{:>8}{:>8}{:>8} has delta of {:.3}",
 					x, y, z, delta
