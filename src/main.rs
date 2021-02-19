@@ -2,7 +2,6 @@ use spiral::*;
 use std::fs;
 use std::error::Error;
 use std::ops::*;
-use std::process;
 use std::env;
 
 const PATH: &'static str = "offsets.txt";
@@ -19,9 +18,11 @@ fn main() {
         (&args[3]).parse::<i32>().unwrap(),
     );
 
+    let grass_count = rows.len();
+
 	for (x, z) in spiral {
 		for y in 62..80 {
-			let mut delta = 0;
+			let mut delta: f64 = 0.0;
 			let testpos = Position { x, y, z };
 
 			for (pos, off) in rows.iter() {
@@ -33,16 +34,18 @@ fn main() {
 //					matches += 1;
 //					is_match = "MATCH";
 //				}
-                delta += (*off - grass_offset_from_pos(pos_abs)).abs() as i32;
+                delta += (*off - grass_offset_from_pos(pos_abs)).abs() as f64;
 
 //				println!();
 //				println!("{:>8}{:>8}{:>8}", pos_abs.x, pos_abs.y, pos_abs.z);
 //				println!("{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} {}", off.x, off.y, off.z, temp.x, temp.y, temp.z, is_match);
 			}
 
-			if delta < 4 {
+            delta /= grass_count as f64;
+
+			if delta < 4.0 {
 				println!(
-					"{:>8}{:>8}{:>8} has delta of {}",
+					"{:>8}{:>8}{:>8} has delta of {:.3}",
 					x, y, z, delta
 				);
 			}
