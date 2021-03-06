@@ -18,23 +18,35 @@ fn main() {
         (&args[3]).parse::<i32>().unwrap(),
     );
 
+    let mut version = Version::PostB1_5;
+    for arg in args {
+        if (arg == "--post-1.12") {
+            version = Version::Post1_12;
+        }
+    }
+    println!("running with version {:?}", version);
+
     let grass_count = rows.len();
+    let (y_min, y_max) = match version {
+        Version::PostB1_5 => (62, 128),
+        Version::Post1_12 => (0, 1),
+    };
 
 	for (x, z) in spiral {
-		for y in 62..80 {
+		for y in y_min..y_max {
 			let mut delta: f64 = 0.0;
 			let testpos = Position { x, y, z };
 
 			for (pos, off) in rows.iter() {
 				let pos_abs = testpos + *pos - recorigin;
-				let temp = grass_offset_from_pos(pos_abs);
+				let testoff = grass_offset_from_pos(pos_abs, version);
 				let mut is_match = "";
 
 //				if (*off - grass_offset_from_pos(pos_abs)).abs() < 2 {
 //					matches += 1;
 //					is_match = "MATCH";
 //				}
-                delta += (*off - grass_offset_from_pos(pos_abs)).abs() as f64;
+                delta += (*off - testoff).abs() as f64;
 
 //				println!();
 //				println!("{:>8}{:>8}{:>8}", pos_abs.x, pos_abs.y, pos_abs.z);
@@ -45,8 +57,8 @@ fn main() {
 
 			if delta < 2.0 {
 				println!(
-					"{:>8}{:>8}{:>8} has delta of {:.3}",
-					x, y, z, delta
+					"{:>8}{:>8}{:>8} has grass delta of {:.3}, delta between positions is {:>8}{:>8}{:>8}",
+					x, y, z, delta, x-recorigin.x, y-recorigin.y, z-recorigin.z
 				);
 			}
 		}
@@ -58,18 +70,27 @@ const Z_MULT: i32 = 0x6ebfff5;
 const LCG_MULT: i64 = 0x285b825;
 const LCG_ADDEND: i64 = 11;
 
-fn grass_offset_from_pos(p: Position) -> Offset {
-	grass_offset(p.x, p.y, p.z)
+fn grass_offset_from_pos(p: Position, version: Version) -> Offset {
+	grass_offset(p.x, p.y, p.z, version)
 }
 
-fn grass_offset(x: i32, y: i32, z: i32) -> Offset {
-	let mut seed = (x * X_MULT) as i64 ^ (z * Z_MULT) as i64 ^ y as i64;
-	seed = seed * seed * LCG_MULT + seed * LCG_ADDEND;
+fn grass_offset(x: i32, y: i32, z: i32, version: Version) -> Offset {
+    let seed = match version {
+        Version::PostB1_5 => get_coord_random(x, y, z),
+        Version::Post1_12 => get_coord_random(x, 0, z),
+    };
+
 	Offset {
 		x: (seed >> 16 & 15) as i8,
 		y: (seed >> 20 & 15) as i8,
 		z: (seed >> 24 & 15) as i8,
 	}
+}
+
+fn get_coord_random(x: i32, y: i32, z: i32) -> i64 {
+	let mut seed = (x * X_MULT) as i64 ^ (z * Z_MULT) as i64 ^ y as i64;
+	seed = seed * seed * LCG_MULT + seed * LCG_ADDEND;
+    return seed;
 }
 
 // returns a tuple of the input integer offsets converted to
@@ -194,4 +215,10 @@ fn load_grass_positions() -> Result<Vec<(Position, Offset)>, Box<dyn Error>> {
 			)
 		})
 		.collect::<Vec<(Position, Offset)>>())
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Version {
+    PostB1_5,
+    Post1_12,
 }
